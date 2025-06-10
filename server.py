@@ -125,6 +125,7 @@ async def start_server():
         loop.add_signal_handler(signal.SIGINT, shutdown)
         loop.add_signal_handler(signal.SIGTERM, shutdown)
     except NotImplementedError:
+        # Add warning for Windows systems that I guess cannot support signal handlers to catch shut down.
         logger.warning("Signal handlers are not implemented on this platform.")
 
     await stop_event.wait()
@@ -142,5 +143,8 @@ async def start_server():
 if __name__ == "__main__":
     try:
         asyncio.run(start_server())
+    except KeyboardInterrupt:
+        # Need this for windows I guess because the signal_handlers arnt supported.
+        logger.info("Server stoppyed by user (KeyboardInterrupt)")
     except Exception as e:
         logger.error(f"Server crashed with exception: {e}", exc_info=True)
