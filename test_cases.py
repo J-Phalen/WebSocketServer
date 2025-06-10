@@ -144,6 +144,17 @@ async def test_post_with_no_api_key():
         assert "Forbidden" in text
 
 
+@pytest.mark.asyncio
+async def test_post_with_no_message():
+    async with ClientSession() as session:
+        logger.info("Testing an http post to the server without sending a message...")
+        resp = await session.post(POST_URL, headers={"X-API-Key": API_KEY}, data={})
+        text = await resp.text()
+        assert resp.status == 400
+        assert "Missing" in text or "message" in text.lower()
+        logger.info("Server correctly responded with 400 to missing message field.")
+
+
 # This one is a little more complicated, I am trying to test reading back a message posted via http,
 # but to do this, we need to essentiall build a function that does all of the other tests, once we know they pass.
 @pytest.mark.asyncio
@@ -179,3 +190,7 @@ async def test_broadcast_message_reception():
     logger.info("WS Client has received the message.")
 
     listener_task.cancel()
+    try:
+        await listener_task
+    except asyncio.CancelledError:
+        pass
