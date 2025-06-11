@@ -1,0 +1,23 @@
+import ssl
+import time
+
+import websocket
+
+"""Start the WebSocket client."""
+ws_url = "wss://127.0.0.1:8567/ws?apikey=changethistosomethingthenpassinheaders"
+ws = websocket.WebSocket(sslopt={"cert_reqs": ssl.CERT_NONE})
+ws.connect(ws_url)
+ws.settimeout(0.1)  # non-blocking-ish recv timeout
+
+# Normally there is a ws.run_forever() that covers all this, but I'm special and cant do that.
+
+while True:
+    try:
+        opcode, data = ws.recv_data(control_frame=True)
+        if opcode == websocket.ABNF.OPCODE_PING:
+            ws.pong(data)
+        elif opcode == websocket.ABNF.OPCODE_TEXT:
+            data = data.decode("utf-8") if isinstance(data, bytes) else data
+            print(data)
+    except websocket.WebSocketTimeoutException:
+        time.sleep(0.1)
