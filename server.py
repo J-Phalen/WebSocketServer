@@ -2,7 +2,7 @@ import asyncio
 import logging
 import signal
 
-from aiohttp import WSMsgType, web
+from aiohttp import WSMsgType, web, web_ws
 
 logger = logging.getLogger("websocket_server")
 logging.basicConfig(
@@ -28,15 +28,23 @@ async def websocket_handler(request):
 
     async with lock:
         clients.add(ws)
-    logger.info(f"Client connected: {request.remote}, total clients: {len(clients)}")
+    ip = request.headers.get("X-Real-IP", request.remote)
+    if not ip:
+        ip = request.remote
+    logger.info(f"Client connected: {ip}, total clients: {len(clients)}")
 
     try:
         async for msg in ws:
             if msg.type == WSMsgType.TEXT:
-                # Handle incoming messages if needed
+                # Handle incomming messages here if wanted.
                 pass
             elif msg.type == WSMsgType.ERROR:
                 logger.error(f"WebSocket connection closed with exception {ws.exception()}")
+    except asyncio.CancelledError:
+        logger.info(f"Connection cancelled for client {request.remote}")
+        raise
+    except Exception as e:
+        logger.error(f"Connection error for client {request.remote}: {e}", exc_info=True)
     finally:
         async with lock:
             clients.discard(ws)
@@ -46,7 +54,14 @@ async def websocket_handler(request):
 
 
 async def handle_post(request):
-    data = await request.post()
+    try:
+        if request.content_type == "application/json":
+            data = await request.json()
+        else:
+            data = await request.post()
+    except Exception as error:
+        logger.warning(f"Failed to parse POST body: {error}", exc_info=True)
+        return web.Response(status=400, text="Invalid POST body")
     api_key = request.headers.get("X-API-Key") or data.get("api_key")
     if api_key != API_KEY:
         logger.warning("Unauthorized POST attempt with invalid API key")
@@ -73,6 +88,7 @@ async def broadcast(message):
                 await ws.send_str(message)
             except Exception as e:
                 logger.error(f"Error sending message to client: {e}")
+                await ws.close()
                 to_remove.add(ws)
         for ws in to_remove:
             clients.discard(ws)
@@ -88,10 +104,16 @@ async def ping_clients():
                     to_remove.add(ws)
                     continue
                 try:
-                    await ws.ping()
+                    pong_waiter = await ws.ping()
+                    await asyncio.wait_for(pong_waiter, timeout=10)
                     logger.debug(f"Sent ping to client {ws}")
+                except (asyncio.TimeoutError, ConnectionResetError, web_ws.WSServerHandshakeError) as e:
+                    logger.warning(f"Client ping timeout or connection lost: {e}")
+                    await ws.close()
+                    to_remove.add(ws)
                 except Exception as e:
-                    logger.warning(f"Failed to ping client: {e}")
+                    logger.error(f"Unexpected error pinging client: {e}", exc_info=True)
+                    await ws.close()
                     to_remove.add(ws)
             for ws in to_remove:
                 clients.discard(ws)
