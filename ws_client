@@ -1,11 +1,11 @@
-import ssl
 import time
 
 import websocket
 
 """Start the WebSocket client."""
-ws_url = "wss://127.0.0.1:8567/ws?apikey=changethistosomethingthenpassinheaders"
-ws = websocket.WebSocket(sslopt={"cert_reqs": ssl.CERT_NONE})
+websocket.enableTrace(True)
+ws_url = "ws://127.0.0.1:8567/ws?apikey=changethistosomethingthenpassinheaders"
+ws = websocket.WebSocket()
 ws.connect(ws_url)
 ws.settimeout(0.1)  # non-blocking-ish recv timeout
 
@@ -21,3 +21,9 @@ while True:
             print(data)
     except websocket.WebSocketTimeoutException:
         time.sleep(0.1)
+    except websocket.WebSocketConnectionClosedException:
+        print("WebSocket connection closed")
+        break
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        break
