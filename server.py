@@ -2,7 +2,7 @@ import asyncio
 import logging
 import signal
 
-from aiohttp import WSMsgType, web, web_ws
+from aiohttp import WSMsgType, web
 
 logger = logging.getLogger("websocket_server")
 logging.basicConfig(
@@ -28,23 +28,15 @@ async def websocket_handler(request):
 
     async with lock:
         clients.add(ws)
-    ip = request.headers.get("X-Real-IP", request.remote)
-    if not ip:
-        ip = request.remote
-    logger.info(f"Client connected: {ip}, total clients: {len(clients)}")
+    logger.info(f"Client connected: {request.remote}, total clients: {len(clients)}")
 
     try:
         async for msg in ws:
             if msg.type == WSMsgType.TEXT:
-                # Handle incomming messages here if wanted.
+                # Handle incoming messages if needed
                 pass
             elif msg.type == WSMsgType.ERROR:
                 logger.error(f"WebSocket connection closed with exception {ws.exception()}")
-    except asyncio.CancelledError:
-        logger.info(f"Connection cancelled for client {request.remote}")
-        raise
-    except Exception as e:
-        logger.error(f"Connection error for client {request.remote}: {e}", exc_info=True)
     finally:
         async with lock:
             clients.discard(ws)
@@ -100,21 +92,25 @@ async def ping_clients():
         async with lock:
             to_remove = set()
             for ws in clients:
-                if ws.closed:
+                # Log basic connection state
+                logger.debug(f"Pinging client {ws}, closed={ws.closed}, transport={getattr(ws._req, 'transport', None)}")
+
+                if ws.closed or not getattr(ws._req, "transport", None):
+                    logger.debug("Skipping ping: connection already closed or transport missing.")
                     to_remove.add(ws)
                     continue
+
                 try:
-                    pong_waiter = await ws.ping()
+                    pong_waiter = ws.ping()
+                    if pong_waiter is None:
+                        raise RuntimeError("ws.ping() returned None (likely disconnected)")
                     await asyncio.wait_for(pong_waiter, timeout=10)
-                    logger.debug(f"Sent ping to client {ws}")
-                except (asyncio.TimeoutError, ConnectionResetError, web_ws.WSServerHandshakeError) as e:
-                    logger.warning(f"Client ping timeout or connection lost: {e}")
-                    await ws.close()
-                    to_remove.add(ws)
+                    logger.debug("Ping successful")
                 except Exception as e:
-                    logger.error(f"Unexpected error pinging client: {e}", exc_info=True)
+                    logger.warning(f"Failed to ping client: {e}")
                     await ws.close()
                     to_remove.add(ws)
+
             for ws in to_remove:
                 clients.discard(ws)
 
