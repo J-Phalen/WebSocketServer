@@ -1,0 +1,25 @@
+services:
+  sitea_wss:
+    container_name: sitea_wss
+    build:
+      context: ../
+    restart: unless-stopped
+    networks:
+      sitea:
+        ipv4_address: 172.19.0.9
+    ports:
+      - 8567:8567
+    command: ["python", "server.py"]
+    volumes:
+      - /srv/containers/sitea/wss:/app
+      - ./config.env:/app/config.env:ro
+      - /srv/containers/nginx/config/logs:/logs/nginx:ro
+      - /srv/containers/sitea/php84/logs:/logs/php:ro
+      - sitea_venv:/app/venv
+
+volumes:
+  sitea_venv:
+
+networks:
+  sitea:
+    external: true

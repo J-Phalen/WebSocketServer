@@ -156,7 +156,7 @@ async def test_post_with_no_message():
 
 
 # This one is a little more complicated, I am trying to test reading back a message posted via http,
-# but to do this, we need to essentiall build a function that does all of the other tests, once we know they pass.
+# but to do this, we need to essentially a function that does all of the other tests, once we know they pass.
 @pytest.mark.asyncio
 async def test_broadcast_message_reception():
     """

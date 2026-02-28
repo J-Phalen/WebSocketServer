@@ -1,0 +1,25 @@
+services:
+  siteb_wss:
+    container_name: siteb_wss
+    build:
+      context: ../
+    restart: unless-stopped
+    networks:
+      siteb:
+        ipv4_address: 172.19.0.9
+    ports:
+      - 8567:8567
+    command: ["python", "server.py"]
+    volumes:
+      - /srv/containers/siteb/wss:/app
+      - ./config.env:/app/config.env:ro
+      - /srv/containers/nginx/config/logs:/logs/nginx:ro
+      - /srv/containers/siteb/php84/logs:/logs/php:ro
+      - siteb_venv:/app/venv
+
+volumes:
+  siteb_venv:
+
+networks:
+  siteb:
+    external: true
