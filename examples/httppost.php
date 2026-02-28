@@ -24,11 +24,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $context = stream_context_create($opts);
 
         // Replace with your actual URL:
-        $url = "https://twizt3d.net/wss/post";
+        $url = "https://wss.anthelion.dev/wss/post";
 
         $result = @file_get_contents($url, false, $context);
 
-        if ($result === FALSE) {
+        if ($result === false) {
             $response = "Failed to send message.";
         } else {
             $response = "Message sent successfully!";
